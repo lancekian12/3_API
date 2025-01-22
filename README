@@ -1,64 +1,53 @@
-How to Start the Project
-Follow the steps below to set up and run the project:
+    ## Overview
 
-1. Set Up Virtual Environment
-First, create and activate a virtual environment:
+    This project is a Flask-based web application with a PostgreSQL database, running inside Docker containers. It provides a simple setup process and is ideal for development environments.
 
-bash
-Copy
-Edit
-python -m venv venv
-Activate the virtual environment:
+    ## How to Start the Project
 
-On Windows:
-bash
-Copy
-Edit
-.\venv\Scripts\Activate
-On macOS/Linux:
-bash
-Copy
-Edit
-source venv/bin/activate
-2. Install Dependencies
-Install the required dependencies:
+    Follow these steps to set up and run the project locally.
 
-bash
-Copy
-Edit
-pip install -r requirements.txt
-3. Set Up and Start Docker Containers
-Navigate to the docker directory and start the Docker containers using docker-compose:
+    ### 1. Set Up Virtual Environment
 
-bash
-Copy
-Edit
-cd docker
-docker-compose up --build
-Project Structure
-Here is the file structure of the project:
+    To begin, create a virtual environment to isolate your Python dependencies:
 
-bash
-Copy
-Edit
-3_API/
-│
-├── app/
-│   ├── __init__.py
-│   ├── config/
-│   │   ├── __init__.py
-│   │   └── config.py
-│   ├── model.py
-│   ├── routes.py
-│   └── __init__.py  # Initialize app and db in this file
-│
-├── docker/
-│   ├── postgres/
-│   │   └── init.sql  # Database schema initialization file
-│   └── docker-compose.yml  # Defines Docker services
-│
-├── venv/               # Virtual Environment
-├── .env                # Environment variables (keep sensitive info here)
-├── .gitignore          # Git ignore file
-├── Dockerfile          # Docker container setup
-└── requirements.txt    # Python dependencies
+    ```bash
+    python -m venv venv
+
+    On Windows:
+    .\venv\Scripts\Activate
+
+    On macOS/Linux:
+    source venv/bin/activate
+
+    ### 2. Install Dependencies
+    pip install -r requirements.txt
+
+    ### 3. Set Up and Start Docker Containers
+    cd docker
+    docker-compose up --build
+
+    ## Project Structure
+
+    3_API/
+    │
+    ├── app/                             # Flask application files
+    │   ├── __init__.py                  # Initialize app and database
+    │   ├── config/                      # Configuration files
+    │   │   ├── __init__.py
+    │   │   └── config.py                # Configuration settings
+    │   ├── model.py                     # Database models
+    │   ├── routes.py                    # Routes for API
+    │   └── __init__.py                  # Initialize app and db in this file
+    │
+    ├── docker/                          # Docker-related files
+    │   ├── postgres/                    # PostgreSQL initialization scripts
+    │   │   └── init.sql                 # Database schema initialization
+    │   ├── docker-compose.yml           # Defines Docker services (PostgreSQL and Flask app)
+    │   └── Dockerfile                   # Docker setup for the Flask app
+    │
+    ├── venv/                            # Virtual Environment
+    ├── .env                             # Environment variables (e.g., database credentials)
+    ├── .gitignore                       # Git ignore file to exclude unnecessary files
+    ├── Dockerfile                       # Docker container setup (Flask app)
+    └── requirements.txt                 # List of Python dependencies
+
