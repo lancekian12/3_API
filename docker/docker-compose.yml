@@ -10,3 +10,14 @@ services:
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5432:5432"
+
+  web:
+    build:
+      context: .. # The context points to the parent directory (3_API)
+      dockerfile: Dockerfile # Explicitly specify the path to Dockerfile inside the 'docker' folder
+    environment:
+      - SQLALCHEMY_DATABASE_URI=postgresql://user:password@db:5432/postgres
+    ports:
+      - "5000:5000"
+    depends_on:
+      - db

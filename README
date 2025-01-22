@@ -1,0 +1,21 @@
+3_API/
+│
+├── app/
+│   ├── __init__.py
+│   ├── config/
+│   │   ├── __init__.py
+│   │   └── config.py
+│   ├── model.py
+│   ├── routes.py
+│   └── __init__.py  # Initialize app and db in this file
+│
+├── docker/
+│   ├── postgres/
+│   │   └── init.sql  # Database schema initialization file
+│   └── docker-compose.yml  # To define Docker services
+│
+├── venv/               # Virtual Environment
+├── .env                # Environment variables (keep sensitive info here)
+├── .gitignore          # Git ignore file
+├── Dockerfile          # Docker container setup
+└── requirements.txt
