@@ -1,3 +1,46 @@
+How to Start the Project
+Follow the steps below to set up and run the project:
+
+1. Set Up Virtual Environment
+First, create and activate a virtual environment:
+
+bash
+Copy
+Edit
+python -m venv venv
+Activate the virtual environment:
+
+On Windows:
+bash
+Copy
+Edit
+.\venv\Scripts\Activate
+On macOS/Linux:
+bash
+Copy
+Edit
+source venv/bin/activate
+2. Install Dependencies
+Install the required dependencies:
+
+bash
+Copy
+Edit
+pip install -r requirements.txt
+3. Set Up and Start Docker Containers
+Navigate to the docker directory and start the Docker containers using docker-compose:
+
+bash
+Copy
+Edit
+cd docker
+docker-compose up --build
+Project Structure
+Here is the file structure of the project:
+
+bash
+Copy
+Edit
 3_API/
 │
 ├── app/
@@ -12,10 +55,10 @@
 ├── docker/
 │   ├── postgres/
 │   │   └── init.sql  # Database schema initialization file
-│   └── docker-compose.yml  # To define Docker services
+│   └── docker-compose.yml  # Defines Docker services
 │
 ├── venv/               # Virtual Environment
 ├── .env                # Environment variables (keep sensitive info here)
 ├── .gitignore          # Git ignore file
 ├── Dockerfile          # Docker container setup
-└── requirements.txt
+└── requirements.txt    # Python dependencies
