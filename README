@@ -49,13 +49,19 @@
     ├── Dockerfile                       # Docker container setup (Flask app)
     └── requirements.txt                 # List of Python dependencies
 
-    ## APIs We Used
+## APIs We Used
 
-    1. **Jikan API** - Fetches anime details  
-    URL: [https://api.jikan.moe/v4/anime](https://api.jikan.moe/v4/anime)
+1. **Jikan API** - Fetches anime data  
+   URL: [https://api.jikan.moe/v4/anime](https://api.jikan.moe/v4/anime)  
+   Purpose: Used to fetch anime data, either based on a specific query or a random selection.  
+   Documentation: [Jikan API Documentation](https://jikan.moe/docs/)
 
-    2. **Ghibli API** - Fetches movie details  
-    URL: [https://ghibliapi.herokuapp.com/films](https://ghibliapi.herokuapp.com/films)
+2. **Google Books API** - Fetches book data  
+   URL: [https://www.googleapis.com/books/v1/volumes](https://www.googleapis.com/books/v1/volumes)  
+   Purpose: Used to fetch book data based on a query or to get a random book recommendation.  
+   Documentation: [Google Books API Documentation](https://developers.google.com/books)
 
-    3. **OpenLibrary API** - Fetches book details  
-    URL: [https://openlibrary.org/search.json](https://openlibrary.org/search.json)
+3. **Dog CEOs Dog API** - Fetches random dog breed images  
+   URL: [https://dog.ceo/api/breeds/image/random](https://dog.ceo/api/breeds/image/random)  
+   Purpose: Used to fetch random dog breed images, which can be used for dog breed recommendations.  
+   Documentation: [Dog CEOs Dog API Documentation](https://dog.ceo/dog-api/)

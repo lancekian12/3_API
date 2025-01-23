@@ -239,7 +239,7 @@ def get_book(current_user):
 def get_recommendation():
     anime_query = request.args.get("anime")
     book_query = request.args.get("book")
-    food_query = request.args.get("food")
+    dog_query = request.args.get("dog")
 
     results = {}
 
@@ -314,42 +314,30 @@ def get_recommendation():
         except Exception as e:
             results["book"] = {"message": f"Error fetching random book: {e}"}
 
-    # Handle Food Recipe Recommendation with Spoonacular API
-    if food_query:
-        try:
-            # Use Spoonacular's free API for recipe search (without an API key for basic use)
-            food_response = requests.get(
-                f"https://api.spoonacular.com/recipes/complexSearch?query={food_query}&number=3&apiKey=YOUR_API_KEY_HERE"
-            )
-            if food_response.status_code == 200:
-                food_data = food_response.json().get("results", [])
-                if food_data:
-                    results["food"] = food_data
-                else:
-                    results["food"] = {"message": "No matching recipes found"}
-            else:
-                results["food"] = {"message": "Failed to fetch food recipes"}
-        except Exception as e:
-            results["food"] = {"message": f"Error fetching food recipes: {e}"}
+    # Handle Dog Breed Recommendation
+    if dog_query:
+        dog_response = requests.get(f"https://dog.ceo/api/breeds/image/random")
+        if dog_response.status_code == 200:
+            dog_data = dog_response.json()
+            results["dog"] = {
+                "breed_image": dog_data.get("message", ""),
+                "message": "Random dog breed image",
+            }
+        else:
+            results["dog"] = {"message": "Failed to fetch dog breed"}
     else:
         try:
-            # Default query for random recipes without a search term
-            food_response = requests.get(
-                "https://api.spoonacular.com/recipes/random?number=1&apiKey=YOUR_API_KEY_HERE"
-            )
-            if food_response.status_code == 200:
-                food_data = food_response.json().get("recipes", [])
-                if food_data:
-                    random_food = random.choice(
-                        food_data
-                    )  # Select a random food recipe
-                    results["food"] = [random_food]
-                else:
-                    results["food"] = {"message": "No food recipes available"}
+            dog_response = requests.get(f"https://dog.ceo/api/breeds/image/random")
+            if dog_response.status_code == 200:
+                dog_data = dog_response.json()
+                results["dog"] = {
+                    "breed_image": dog_data.get("message", ""),
+                    "message": "Random dog breed image",
+                }
             else:
-                results["food"] = {"message": "Failed to fetch random food recipe"}
+                results["dog"] = {"message": "Failed to fetch random dog breed"}
         except Exception as e:
-            results["food"] = {"message": f"Error fetching random food recipe: {e}"}
+            results["dog"] = {"message": f"Error fetching random dog breed: {e}"}
 
     # Return consolidated results
     return jsonify(results), 200
