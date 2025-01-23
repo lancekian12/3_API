@@ -30,14 +30,12 @@
 
     3_API/
     │
-    ├── app/                             # Flask application files
+    ├── app/                             # Flask application files and initialize app and db in this file
     │   ├── __init__.py                  # Initialize app and database
     │   ├── config/                      # Configuration files
-    │   │   ├── __init__.py
     │   │   └── config.py                # Configuration settings
     │   ├── model.py                     # Database models
     │   ├── routes.py                    # Routes for API
-    │   └── __init__.py                  # Initialize app and db in this file
     │
     ├── docker/                          # Docker-related files
     │   ├── postgres/                    # PostgreSQL initialization scripts
