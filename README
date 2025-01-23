@@ -30,14 +30,12 @@
 
     3_API/
     │
-    ├── app/                             # Flask application files
+    ├── app/                             # Flask application files and initialize app and db in this file
     │   ├── __init__.py                  # Initialize app and database
     │   ├── config/                      # Configuration files
-    │   │   ├── __init__.py
     │   │   └── config.py                # Configuration settings
     │   ├── model.py                     # Database models
     │   ├── routes.py                    # Routes for API
-    │   └── __init__.py                  # Initialize app and db in this file
     │
     ├── docker/                          # Docker-related files
     │   ├── postgres/                    # PostgreSQL initialization scripts
@@ -51,3 +49,13 @@
     ├── Dockerfile                       # Docker container setup (Flask app)
     └── requirements.txt                 # List of Python dependencies
 
+    ## APIs We Used
+
+    1. **Jikan API** - Fetches anime details  
+    URL: [https://api.jikan.moe/v4/anime](https://api.jikan.moe/v4/anime)
+
+    2. **Ghibli API** - Fetches movie details  
+    URL: [https://ghibliapi.herokuapp.com/films](https://ghibliapi.herokuapp.com/films)
+
+    3. **OpenLibrary API** - Fetches book details  
+    URL: [https://openlibrary.org/search.json](https://openlibrary.org/search.json)

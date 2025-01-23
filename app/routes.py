@@ -1,9 +1,12 @@
 from datetime import datetime, timedelta
 from functools import wraps
-from sqlalchemy.sql import func
 from flask import request, jsonify, make_response
-from werkzeug.security import generate_password_hash, check_password_hash
+import requests
 import jwt
+from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy.sql import func
+import random
+
 
 from .models import Users, Funds
 from . import app, db
@@ -14,12 +17,10 @@ def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         token = None
-        # JWT is passed in the request headers as Authorization
         if "Authorization" in request.headers:
             token = request.headers["Authorization"]
             print(token)
 
-        # Return 401 if token is not passed
         if not token:
             return jsonify({"message": "Token is missing"}), 401
 
@@ -71,8 +72,8 @@ def signup():
     data = request.json
     email = data.get("email")
     password = data.get("password")
-    first_name = data.get("first_name")  # Updated to match the model field
-    last_name = data.get("last_name")  # Updated to match the model field
+    first_name = data.get("first_name")
+    last_name = data.get("last_name")
 
     if not first_name or not last_name or not email or not password:
         return make_response({"message": "All fields are required"}, 400)
@@ -174,3 +175,181 @@ def delete_fund(current_user, id):
     except Exception as e:
         print(e)
         return {"error": "Unable to process"}, 409
+
+
+# Fetch Anime Details
+@app.route("/anime", methods=["GET"])
+@token_required
+def get_anime(current_user):
+    query = request.args.get("query")
+    if not query:
+        return {"message": "Anime query is required"}, 400
+
+    try:
+        response = requests.get(f"https://api.jikan.moe/v4/anime?q={query}")
+        if response.status_code == 200:
+            return response.json(), 200
+        return {"message": "Failed to fetch anime details"}, response.status_code
+    except Exception as e:
+        print(f"Error fetching anime: {e}")
+        return {"message": "An error occurred while fetching anime details"}, 500
+
+
+# Fetch Movie Details
+@app.route("/movie", methods=["GET"])
+@token_required
+def get_movie(current_user):
+    query = request.args.get("query")
+    if not query:
+        return {"message": "Movie query is required"}, 400
+
+    try:
+        response = requests.get(f"https://ghibliapi.herokuapp.com/films")
+        if response.status_code == 200:
+            movies = response.json()
+            filtered_movies = [
+                movie for movie in movies if query.lower() in movie["title"].lower()
+            ]
+            return {"movies": filtered_movies}, 200
+        return {"message": "Failed to fetch movie details"}, response.status_code
+    except Exception as e:
+        print(f"Error fetching movie: {e}")
+        return {"message": "An error occurred while fetching movie details"}, 500
+
+
+# Fetch Book Details
+@app.route("/book", methods=["GET"])
+@token_required
+def get_book(current_user):
+    query = request.args.get("query")
+    if not query:
+        return {"message": "Book query is required"}, 400
+
+    try:
+        response = requests.get(f"https://openlibrary.org/search.json?q={query}")
+        if response.status_code == 200:
+            return response.json(), 200
+        return {"message": "Failed to fetch book details"}, response.status_code
+    except Exception as e:
+        print(f"Error fetching book: {e}")
+        return {"message": "An error occurred while fetching book details"}, 500
+
+
+@app.route("/recommendation", methods=["GET"])
+def get_recommendation():
+    anime_query = request.args.get("anime")
+    book_query = request.args.get("book")
+    food_query = request.args.get("food")
+
+    results = {}
+
+    # Handle Anime Recommendation
+    if anime_query:
+        anime_response = requests.get(f"https://api.jikan.moe/v4/anime?q={anime_query}")
+        if anime_response.status_code == 200:
+            anime_data = anime_response.json()
+            results["anime"] = anime_data.get("data", [])
+        else:
+            results["anime"] = {"message": "Failed to fetch anime"}
+    else:
+        try:
+            anime_response = requests.get(f"https://api.jikan.moe/v4/anime")
+            if anime_response.status_code == 200:
+                anime_data = anime_response.json()
+                anime_list = anime_data.get("data", [])
+                if anime_list:
+                    random_anime = random.choice(anime_list)
+                    results["anime"] = [random_anime]
+                else:
+                    results["anime"] = {"message": "No anime data available"}
+            else:
+                results["anime"] = {"message": "Failed to fetch random anime"}
+        except Exception as e:
+            results["anime"] = {"message": f"Error fetching random anime: {e}"}
+
+    # Handle Book Recommendation
+    if book_query:
+        book_response = requests.get(
+            f"https://www.googleapis.com/books/v1/volumes?q={book_query}"
+        )
+        if book_response.status_code == 200:
+            books = book_response.json().get("items", [])
+            filtered_books = [
+                {
+                    "title": book["volumeInfo"].get("title"),
+                    "author_name": book["volumeInfo"].get("authors", []),
+                    "first_publish_year": book["volumeInfo"].get("publishedDate"),
+                }
+                for book in books
+            ]
+            results["book"] = (
+                filtered_books
+                if filtered_books
+                else {"message": "No matching books found"}
+            )
+        else:
+            results["book"] = {"message": "Failed to fetch book"}
+    else:
+        try:
+            book_response = requests.get(
+                "https://www.googleapis.com/books/v1/volumes?q=subject:fiction"
+            )
+            if book_response.status_code == 200:
+                books = book_response.json().get("items", [])
+                if books:
+                    random_book = random.choice(books)
+                    results["book"] = [
+                        {
+                            "title": random_book["volumeInfo"].get("title"),
+                            "author_name": random_book["volumeInfo"].get("authors", []),
+                            "first_publish_year": random_book["volumeInfo"].get(
+                                "publishedDate"
+                            ),
+                        }
+                    ]
+                else:
+                    results["book"] = {"message": "No books available"}
+            else:
+                results["book"] = {"message": "Failed to fetch random book"}
+        except Exception as e:
+            results["book"] = {"message": f"Error fetching random book: {e}"}
+
+    # Handle Food Recipe Recommendation with Spoonacular API
+    if food_query:
+        try:
+            # Use Spoonacular's free API for recipe search (without an API key for basic use)
+            food_response = requests.get(
+                f"https://api.spoonacular.com/recipes/complexSearch?query={food_query}&number=3&apiKey=YOUR_API_KEY_HERE"
+            )
+            if food_response.status_code == 200:
+                food_data = food_response.json().get("results", [])
+                if food_data:
+                    results["food"] = food_data
+                else:
+                    results["food"] = {"message": "No matching recipes found"}
+            else:
+                results["food"] = {"message": "Failed to fetch food recipes"}
+        except Exception as e:
+            results["food"] = {"message": f"Error fetching food recipes: {e}"}
+    else:
+        try:
+            # Default query for random recipes without a search term
+            food_response = requests.get(
+                "https://api.spoonacular.com/recipes/random?number=1&apiKey=YOUR_API_KEY_HERE"
+            )
+            if food_response.status_code == 200:
+                food_data = food_response.json().get("recipes", [])
+                if food_data:
+                    random_food = random.choice(
+                        food_data
+                    )  # Select a random food recipe
+                    results["food"] = [random_food]
+                else:
+                    results["food"] = {"message": "No food recipes available"}
+            else:
+                results["food"] = {"message": "Failed to fetch random food recipe"}
+        except Exception as e:
+            results["food"] = {"message": f"Error fetching random food recipe: {e}"}
+
+    # Return consolidated results
+    return jsonify(results), 200
