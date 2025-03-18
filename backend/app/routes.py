@@ -7,7 +7,6 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.sql import func
 import random
 
-
 from .models import Users, Funds
 from . import app, db
 
@@ -177,167 +176,176 @@ def delete_fund(current_user, id):
         return {"error": "Unable to process"}, 409
 
 
-# Fetch Anime Details
-@app.route("/anime", methods=["GET"])
+# Weather Endpoint using WeatherAPI
+@app.route("/weather", methods=["GET"])
 @token_required
-def get_anime(current_user):
-    query = request.args.get("query")
-    if not query:
-        return {"message": "Anime query is required"}, 400
+def get_weather(current_user):
+    location = request.args.get("location")
+    if not location:
+        return jsonify({"message": "Location parameter is required"}), 400
 
-    try:
-        response = requests.get(f"https://api.jikan.moe/v4/anime?q={query}")
-        if response.status_code == 200:
-            return response.json(), 200
-        return {"message": "Failed to fetch anime details"}, response.status_code
-    except Exception as e:
-        print(f"Error fetching anime: {e}")
-        return {"message": "An error occurred while fetching anime details"}, 500
+    # WeatherAPI endpoint for current weather
+    weather_url = "https://api.weatherapi.com/v1/current.json"
+    params = {
+        "key": "d76d4eb38e6d48f1924132518251803",  # Your WeatherAPI key
+        "q": location,
+    }
 
-
-# Fetch Movie Details
-@app.route("/movie", methods=["GET"])
-@token_required
-def get_movie(current_user):
-    query = request.args.get("query")
-    if not query:
-        return {"message": "Movie query is required"}, 400
-
-    try:
-        response = requests.get(f"https://ghibliapi.herokuapp.com/films")
-        if response.status_code == 200:
-            movies = response.json()
-            filtered_movies = [
-                movie for movie in movies if query.lower() in movie["title"].lower()
-            ]
-            return {"movies": filtered_movies}, 200
-        return {"message": "Failed to fetch movie details"}, response.status_code
-    except Exception as e:
-        print(f"Error fetching movie: {e}")
-        return {"message": "An error occurred while fetching movie details"}, 500
-
-
-# Fetch Book Details
-@app.route("/book", methods=["GET"])
-@token_required
-def get_book(current_user):
-    query = request.args.get("query")
-    if not query:
-        return {"message": "Book query is required"}, 400
-
-    try:
-        response = requests.get(f"https://openlibrary.org/search.json?q={query}")
-        if response.status_code == 200:
-            return response.json(), 200
-        return {"message": "Failed to fetch book details"}, response.status_code
-    except Exception as e:
-        print(f"Error fetching book: {e}")
-        return {"message": "An error occurred while fetching book details"}, 500
-
-
-@app.route("/recommendation", methods=["GET"])
-def get_recommendation():
-    anime_query = request.args.get("anime")
-    book_query = request.args.get("book")
-    dog_query = request.args.get("dog")
-
-    results = {}
-
-    # Handle Anime Recommendation
-    if anime_query:
-        anime_response = requests.get(f"https://api.jikan.moe/v4/anime?q={anime_query}")
-        if anime_response.status_code == 200:
-            anime_data = anime_response.json()
-            results["anime"] = anime_data.get("data", [])
-        else:
-            results["anime"] = {"message": "Failed to fetch anime"}
-    else:
-        try:
-            anime_response = requests.get(f"https://api.jikan.moe/v4/anime")
-            if anime_response.status_code == 200:
-                anime_data = anime_response.json()
-                anime_list = anime_data.get("data", [])
-                if anime_list:
-                    random_anime = random.choice(anime_list)
-                    results["anime"] = [random_anime]
-                else:
-                    results["anime"] = {"message": "No anime data available"}
-            else:
-                results["anime"] = {"message": "Failed to fetch random anime"}
-        except Exception as e:
-            results["anime"] = {"message": f"Error fetching random anime: {e}"}
-
-    # Handle Book Recommendation
-    if book_query:
-        book_response = requests.get(
-            f"https://www.googleapis.com/books/v1/volumes?q={book_query}"
-        )
-        if book_response.status_code == 200:
-            books = book_response.json().get("items", [])
-            filtered_books = [
+    response = requests.get(weather_url, params=params)
+    if response.status_code != 200:
+        return (
+            jsonify(
                 {
-                    "title": book["volumeInfo"].get("title"),
-                    "author_name": book["volumeInfo"].get("authors", []),
-                    "first_publish_year": book["volumeInfo"].get("publishedDate"),
+                    "message": "Failed to fetch weather information",
+                    "error": response.json(),
                 }
-                for book in books
-            ]
-            results["book"] = (
-                filtered_books
-                if filtered_books
-                else {"message": "No matching books found"}
-            )
-        else:
-            results["book"] = {"message": "Failed to fetch book"}
-    else:
-        try:
-            book_response = requests.get(
-                "https://www.googleapis.com/books/v1/volumes?q=subject:fiction"
-            )
-            if book_response.status_code == 200:
-                books = book_response.json().get("items", [])
-                if books:
-                    random_book = random.choice(books)
-                    results["book"] = [
-                        {
-                            "title": random_book["volumeInfo"].get("title"),
-                            "author_name": random_book["volumeInfo"].get("authors", []),
-                            "first_publish_year": random_book["volumeInfo"].get(
-                                "publishedDate"
-                            ),
-                        }
-                    ]
-                else:
-                    results["book"] = {"message": "No books available"}
-            else:
-                results["book"] = {"message": "Failed to fetch random book"}
-        except Exception as e:
-            results["book"] = {"message": f"Error fetching random book: {e}"}
+            ),
+            response.status_code,
+        )
 
-    # Handle Dog Breed Recommendation
-    if dog_query:
-        dog_response = requests.get(f"https://dog.ceo/api/breeds/image/random")
-        if dog_response.status_code == 200:
-            dog_data = dog_response.json()
-            results["dog"] = {
-                "breed_image": dog_data.get("message", ""),
-                "message": "Random dog breed image",
-            }
-        else:
-            results["dog"] = {"message": "Failed to fetch dog breed"}
-    else:
-        try:
-            dog_response = requests.get(f"https://dog.ceo/api/breeds/image/random")
-            if dog_response.status_code == 200:
-                dog_data = dog_response.json()
-                results["dog"] = {
-                    "breed_image": dog_data.get("message", ""),
-                    "message": "Random dog breed image",
+    return jsonify(response.json()), 200
+
+
+# Workout endpoints interacting with the external wger API
+
+
+# Helper function for wger API tokens
+def get_wger_access_token():
+    token_url = "https://wger.de/api/v2/token"
+    payload = {"username": "lancekian12@gmail.com", "password": "@52425978Qwqw"}
+    token_response = requests.post(token_url, data=payload)
+    if token_response.status_code != 200:
+        return None, token_response.json()
+    tokens = token_response.json()
+    return tokens.get("access"), tokens.get("refresh")
+
+
+# 1. List all workouts
+@app.route("/workouts", methods=["GET"])
+@token_required
+def list_workouts(current_user):
+    access_token, _ = get_wger_access_token()
+    if not access_token:
+        return jsonify({"message": "Failed to obtain wger access token"}), 500
+
+    headers = {"Authorization": f"Bearer {access_token}"}
+    workouts_response = requests.get("https://wger.de/api/v2/workout/", headers=headers)
+    if workouts_response.status_code != 200:
+        return (
+            jsonify(
+                {
+                    "message": "Failed to fetch workouts",
+                    "error": workouts_response.json(),
                 }
-            else:
-                results["dog"] = {"message": "Failed to fetch random dog breed"}
-        except Exception as e:
-            results["dog"] = {"message": f"Error fetching random dog breed: {e}"}
+            ),
+            workouts_response.status_code,
+        )
 
-    # Return consolidated results
-    return jsonify(results), 200
+    return jsonify(workouts_response.json()), 200
+
+
+# 2. Retrieve a specific workout by ID
+@app.route("/workouts/<int:workout_id>", methods=["GET"])
+@token_required
+def get_workout_by_id(current_user, workout_id):
+    access_token, _ = get_wger_access_token()
+    if not access_token:
+        return jsonify({"message": "Failed to obtain wger access token"}), 500
+
+    headers = {"Authorization": f"Bearer {access_token}"}
+    url = f"https://wger.de/api/v2/workout/{workout_id}/"
+    workout_response = requests.get(url, headers=headers)
+    if workout_response.status_code != 200:
+        return (
+            jsonify(
+                {"message": "Failed to fetch workout", "error": workout_response.json()}
+            ),
+            workout_response.status_code,
+        )
+
+    return jsonify(workout_response.json()), 200
+
+
+# 3. Create a new workout
+@app.route("/workouts", methods=["POST"])
+@token_required
+def create_workout(current_user):
+    workout_data = (
+        request.json
+    )  # Expected to contain necessary fields for workout creation
+    access_token, _ = get_wger_access_token()
+    if not access_token:
+        return jsonify({"message": "Failed to obtain wger access token"}), 500
+
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json",
+    }
+    url = "https://wger.de/api/v2/workout/"
+    workout_response = requests.post(url, json=workout_data, headers=headers)
+    if workout_response.status_code not in [200, 201]:
+        return (
+            jsonify(
+                {
+                    "message": "Failed to create workout",
+                    "error": workout_response.json(),
+                }
+            ),
+            workout_response.status_code,
+        )
+
+    return jsonify(workout_response.json()), 201
+
+
+# 4. Update an existing workout
+@app.route("/workouts/<int:workout_id>", methods=["PUT"])
+@token_required
+def update_workout(current_user, workout_id):
+    workout_data = request.json
+    access_token, _ = get_wger_access_token()
+    if not access_token:
+        return jsonify({"message": "Failed to obtain wger access token"}), 500
+
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json",
+    }
+    url = f"https://wger.de/api/v2/workout/{workout_id}/"
+    workout_response = requests.put(url, json=workout_data, headers=headers)
+    if workout_response.status_code not in [200, 202]:
+        return (
+            jsonify(
+                {
+                    "message": "Failed to update workout",
+                    "error": workout_response.json(),
+                }
+            ),
+            workout_response.status_code,
+        )
+
+    return jsonify(workout_response.json()), 200
+
+
+# 5. Delete a workout
+@app.route("/workouts/<int:workout_id>", methods=["DELETE"])
+@token_required
+def delete_workout(current_user, workout_id):
+    access_token, _ = get_wger_access_token()
+    if not access_token:
+        return jsonify({"message": "Failed to obtain wger access token"}), 500
+
+    headers = {"Authorization": f"Bearer {access_token}"}
+    url = f"https://wger.de/api/v2/workout/{workout_id}/"
+    workout_response = requests.delete(url, headers=headers)
+    if workout_response.status_code not in [200, 204, 202]:
+        return (
+            jsonify(
+                {
+                    "message": "Failed to delete workout",
+                    "error": workout_response.json(),
+                }
+            ),
+            workout_response.status_code,
+        )
+
+    return jsonify({"message": "Workout deleted successfully"}), 200
