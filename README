@@ -28,26 +28,49 @@
 
     ## Project Structure
 
-    3_API/
-    │
-    ├── app/                             # Flask application files and initialize app and db in this file
-    │   ├── __init__.py                  # Initialize app and database
-    │   ├── config/                      # Configuration files
-    │   │   └── config.py                # Configuration settings
-    │   ├── model.py                     # Database models
-    │   ├── routes.py                    # Routes for API
-    │
-    ├── docker/                          # Docker-related files
-    │   ├── postgres/                    # PostgreSQL initialization scripts
-    │   │   └── init.sql                 # Database schema initialization
-    │   ├── docker-compose.yml           # Defines Docker services (PostgreSQL and Flask app)
-    │   └── Dockerfile                   # Docker setup for the Flask app
-    │
-    ├── venv/                            # Virtual Environment
-    ├── .env                             # Environment variables (e.g., database credentials)
-    ├── .gitignore                       # Git ignore file to exclude unnecessary files
-    ├── Dockerfile                       # Docker container setup (Flask app)
-    └── requirements.txt                 # List of Python dependencies
+   3_API/
+   ├─ backend/
+   │   ├─ app/
+   │   │   ├─ __init__.py
+   │   │   ├─ config/
+   │   │   │   └─ ...
+   │   │   ├─ models.py
+   │   │   ├─ routes.py
+   │   │   └─ ...
+   │   ├─ docker/
+   │   │   └─ ...
+   │   ├─ venv/
+   │   │   └─ ...  (optional virtual environment)
+   │   ├─ .env
+   │   ├─ DockerFile
+   │   ├─ requirements.txt
+   │   └─ ...
+   └─ frontend/
+         └─ frontend_folder/
+            ├─ node_modules/
+            ├─ public/
+            │   └─ index.html
+            ├─ src/
+            │   ├─ assets/
+            │   │   └─ ...
+            │   ├─ components/
+            │   │   ├─ About.jsx
+            │   │   ├─ Calories.jsx
+            │   │   ├─ ChooseExercise.jsx
+            │   │   ├─ Home.jsx
+            │   │   ├─ LayoutWithNavigation.jsx
+            │   │   ├─ Navigation.jsx
+            │   │   └─ Weather.jsx
+            │   ├─ index.css
+            │   ├─ main.jsx  (or main.js)
+            │   └─ ...
+            ├─ .gitignore
+            ├─ eslint.config.js
+            ├─ index.html
+            ├─ package.json
+            ├─ package-lock.json
+            ├─ README.md
+            └─ vite.config.js
 
 ## APIs We Used
 

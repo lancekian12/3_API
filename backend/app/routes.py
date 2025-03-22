@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta
-from functools import wraps
 from flask import request, jsonify, make_response
 import requests
 import jwt
@@ -9,36 +8,6 @@ import random
 
 from .models import Users, Funds
 from . import app, db
-
-
-# -------------------------------------------------------------------
-# JWT Decorator
-# -------------------------------------------------------------------
-def token_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = None
-        if "Authorization" in request.headers:
-            token = request.headers["Authorization"]
-            print(token)
-
-        if not token:
-            return jsonify({"message": "Token is missing"}), 401
-
-        try:
-            data = jwt.decode(token, "secret", algorithms=["HS256"])
-            current_user = Users.query.filter_by(id=data["id"]).first()
-            if not current_user:
-                return jsonify({"message": "User not found"}), 404
-        except jwt.ExpiredSignatureError:
-            return jsonify({"message": "Token has expired"}), 401
-        except Exception as e:
-            print(e)
-            return jsonify({"message": "Token is invalid"}), 401
-
-        return f(current_user, *args, **kwargs)
-
-    return decorated
 
 
 # -------------------------------------------------------------------
@@ -61,6 +30,8 @@ def login():
         return make_response({"message": "Please create an account"}, 401)
 
     if check_password_hash(user.password, auth.get("password")):
+        # You can still create a token if you want,
+        # but the routes won't require it.
         token = jwt.encode(
             {"id": user.id, "exp": datetime.utcnow() + timedelta(minutes=30)},
             "secret",
@@ -106,57 +77,54 @@ def signup():
 
 
 # -------------------------------------------------------------------
-# Funds Routes
+# Funds Routes (No user scoping)
 # -------------------------------------------------------------------
 @app.route("/funds", methods=["GET"])
-@token_required
-def get_all_funds(current_user):
-    funds = Funds.query.filter_by(userId=current_user.id).all()
+def get_all_funds():
+    """
+    Returns ALL funds in the database (not tied to a specific user).
+    """
+    funds = Funds.query.all()
     total_sum = 0
     if funds:
         total_sum = (
-            Funds.query.with_entities(db.func.round(func.sum(Funds.amount), 2))
-            .filter_by(userId=current_user.id)
-            .scalar()
-            or 0
+            db.session.query(func.round(func.sum(Funds.amount), 2)).scalar() or 0
         )
 
     return jsonify({"data": [row.serialize for row in funds], "sum": total_sum})
 
 
 @app.route("/funds/<id>", methods=["PUT"])
-@token_required
-def update_fund(current_user, id):
+def update_fund(id):
     try:
-        funds = Funds.query.filter_by(userId=current_user.id, id=id).first()
-        if funds is None:
+        fund = Funds.query.filter_by(id=id).first()
+        if fund is None:
             return {"message": "Unable to update, fund not found"}, 404
 
         data = request.json
         amount = data.get("amount")
         if amount is not None:
             try:
-                funds.amount = float(amount)
+                fund.amount = float(amount)
             except ValueError:
                 return {"message": "Invalid amount provided"}, 400
 
         db.session.commit()
-        return {"message": funds.serialize}, 200
+        return {"message": fund.serialize}, 200
     except Exception as e:
         print(e)
         return {"error": "Unable to process"}, 409
 
 
 @app.route("/funds", methods=["POST"])
-@token_required
-def post_fund(current_user):
+def post_fund():
     data = request.json
     amount = data.get("amount")
     if amount is None:
         return {"message": "Amount is required"}, 400
 
     try:
-        fund = Funds(amount=float(amount), userId=current_user.id)
+        fund = Funds(amount=float(amount))
         db.session.add(fund)
         db.session.commit()
         return fund.serialize, 201
@@ -168,14 +136,13 @@ def post_fund(current_user):
 
 
 @app.route("/funds/<id>", methods=["DELETE"])
-@token_required
-def delete_fund(current_user, id):
+def delete_fund(id):
     try:
-        funds = Funds.query.filter_by(userId=current_user.id, id=id).first()
-        if funds is None:
+        fund = Funds.query.filter_by(id=id).first()
+        if fund is None:
             return {"message": f"Fund with id {id} not found"}, 404
 
-        db.session.delete(funds)
+        db.session.delete(fund)
         db.session.commit()
         return {"message": "Fund deleted successfully"}, 202
     except Exception as e:
@@ -184,16 +151,14 @@ def delete_fund(current_user, id):
 
 
 # -------------------------------------------------------------------
-# Weather Routes using WeatherAPI
+# Weather Routes using WeatherAPI (No token needed)
 # -------------------------------------------------------------------
 WEATHER_API_KEY = "d76d4eb38e6d48f1924132518251803"
 WEATHER_BASE_URL = "https://api.weatherapi.com/v1"
 
 
-# Current Weather
 @app.route("/weather", methods=["GET"])
-@token_required
-def get_weather(current_user):
+def get_weather():
     location = request.args.get("location")
     if not location:
         return jsonify({"message": "Location parameter is required"}), 400
@@ -216,12 +181,10 @@ def get_weather(current_user):
     return jsonify(response.json()), 200
 
 
-# Weather Forecast
 @app.route("/weather/forecast", methods=["GET"])
-@token_required
-def get_weather_forecast(current_user):
+def get_weather_forecast():
     location = request.args.get("location")
-    days = request.args.get("days", 3)  # default to 3-day forecast
+    days = request.args.get("days", 3)
     if not location:
         return jsonify({"message": "Location parameter is required"}), 400
 
@@ -243,16 +206,10 @@ def get_weather_forecast(current_user):
     return jsonify(response.json()), 200
 
 
-# Weather History
 @app.route("/weather/history", methods=["GET"])
-@token_required
-def get_weather_history(current_user):
-    """
-    Example usage:
-      GET /weather/history?location=London&date=2023-03-15
-    """
+def get_weather_history():
     location = request.args.get("location")
-    date = request.args.get("date")  # format YYYY-MM-DD
+    date = request.args.get("date")
     if not location or not date:
         return jsonify({"message": "location and date are required"}), 400
 
@@ -271,16 +228,10 @@ def get_weather_history(current_user):
     return jsonify(response.json()), 200
 
 
-# Weather Astronomy
 @app.route("/weather/astronomy", methods=["GET"])
-@token_required
-def get_weather_astronomy(current_user):
-    """
-    Example usage:
-      GET /weather/astronomy?location=New York&date=2023-08-20
-    """
+def get_weather_astronomy():
     location = request.args.get("location")
-    date = request.args.get("date")  # format YYYY-MM-DD
+    date = request.args.get("date")
     if not location or not date:
         return jsonify({"message": "location and date are required"}), 400
 
@@ -299,14 +250,8 @@ def get_weather_astronomy(current_user):
     return jsonify(response.json()), 200
 
 
-# Weather Timezone
 @app.route("/weather/timezone", methods=["GET"])
-@token_required
-def get_weather_timezone(current_user):
-    """
-    Example usage:
-      GET /weather/timezone?location=New York
-    """
+def get_weather_timezone():
     location = request.args.get("location")
     if not location:
         return jsonify({"message": "location is required"}), 400
@@ -327,7 +272,7 @@ def get_weather_timezone(current_user):
 
 
 # -------------------------------------------------------------------
-# Workout / Wger API Routes
+# Workout / Wger API Routes (No local token, but still uses Wger token)
 # -------------------------------------------------------------------
 def get_wger_access_token():
     token_url = "https://wger.de/api/v2/token"
@@ -339,10 +284,8 @@ def get_wger_access_token():
     return tokens.get("access"), tokens.get("refresh")
 
 
-# 1. List all workouts
 @app.route("/workouts", methods=["GET"])
-@token_required
-def list_workouts(current_user):
+def list_workouts():
     access_token, _ = get_wger_access_token()
     if not access_token:
         return jsonify({"message": "Failed to obtain wger access token"}), 500
@@ -359,10 +302,8 @@ def list_workouts(current_user):
     return jsonify(response.json()), 200
 
 
-# 2. Retrieve a specific workout by ID
 @app.route("/workouts/<int:workout_id>", methods=["GET"])
-@token_required
-def get_workout_by_id(current_user, workout_id):
+def get_workout_by_id(workout_id):
     access_token, _ = get_wger_access_token()
     if not access_token:
         return jsonify({"message": "Failed to obtain wger access token"}), 500
@@ -379,11 +320,9 @@ def get_workout_by_id(current_user, workout_id):
     return jsonify(response.json()), 200
 
 
-# 3. Create a new workout
 @app.route("/workouts", methods=["POST"])
-@token_required
-def create_workout(current_user):
-    workout_data = request.json  # e.g. {"comment": "My new workout"}
+def create_workout():
+    workout_data = request.json
     access_token, _ = get_wger_access_token()
     if not access_token:
         return jsonify({"message": "Failed to obtain wger access token"}), 500
@@ -403,10 +342,8 @@ def create_workout(current_user):
     return jsonify(response.json()), 201
 
 
-# 4. Update an existing workout
 @app.route("/workouts/<int:workout_id>", methods=["PUT"])
-@token_required
-def update_workout(current_user, workout_id):
+def update_workout(workout_id):
     workout_data = request.json
     access_token, _ = get_wger_access_token()
     if not access_token:
@@ -427,10 +364,8 @@ def update_workout(current_user, workout_id):
     return jsonify(response.json()), 200
 
 
-# 5. Delete a workout
 @app.route("/workouts/<int:workout_id>", methods=["DELETE"])
-@token_required
-def delete_workout(current_user, workout_id):
+def delete_workout(workout_id):
     access_token, _ = get_wger_access_token()
     if not access_token:
         return jsonify({"message": "Failed to obtain wger access token"}), 500
@@ -451,11 +386,7 @@ def delete_workout(current_user, workout_id):
 # Additional Wger Endpoints (Days & Exercises)
 # -------------------------------------------------------------------
 @app.route("/days", methods=["GET"])
-@token_required
-def list_days(current_user):
-    """
-    Lists all day objects. Typically, each 'day' belongs to a workout.
-    """
+def list_days():
     access_token, _ = get_wger_access_token()
     if not access_token:
         return jsonify({"message": "Failed to obtain wger access token"}), 500
@@ -473,16 +404,7 @@ def list_days(current_user):
 
 
 @app.route("/days", methods=["POST"])
-@token_required
-def create_day(current_user):
-    """
-    Create a new day.
-    Example JSON:
-    {
-      "training": 123,   # the workout ID
-      "description": "Monday routine"
-    }
-    """
+def create_day():
     day_data = request.json
     access_token, _ = get_wger_access_token()
     if not access_token:
@@ -504,8 +426,7 @@ def create_day(current_user):
 
 
 @app.route("/days/<int:day_id>", methods=["GET"])
-@token_required
-def get_day_by_id(current_user, day_id):
+def get_day_by_id(day_id):
     access_token, _ = get_wger_access_token()
     if not access_token:
         return jsonify({"message": "Failed to obtain wger access token"}), 500
@@ -523,14 +444,7 @@ def get_day_by_id(current_user, day_id):
 
 
 @app.route("/days/<int:day_id>", methods=["PUT"])
-@token_required
-def update_day(current_user, day_id):
-    """
-    Example JSON:
-    {
-      "description": "Updated day description"
-    }
-    """
+def update_day(day_id):
     day_data = request.json
     access_token, _ = get_wger_access_token()
     if not access_token:
@@ -552,8 +466,7 @@ def update_day(current_user, day_id):
 
 
 @app.route("/days/<int:day_id>", methods=["DELETE"])
-@token_required
-def delete_day(current_user, day_id):
+def delete_day(day_id):
     access_token, _ = get_wger_access_token()
     if not access_token:
         return jsonify({"message": "Failed to obtain wger access token"}), 500
@@ -571,18 +484,13 @@ def delete_day(current_user, day_id):
 
 
 @app.route("/exercises", methods=["GET"])
-@token_required
-def list_exercises(current_user):
-    """
-    Lists exercises. You can filter with query params, e.g. ?language=2 or ?limit=50
-    """
+def list_exercises():
     access_token, _ = get_wger_access_token()
     if not access_token:
         return jsonify({"message": "Failed to obtain wger access token"}), 500
 
     headers = {"Authorization": f"Bearer {access_token}"}
     url = "https://wger.de/api/v2/exercise/"
-    # Pass along any query params from the client to wger
     response = requests.get(url, headers=headers, params=request.args)
     if response.status_code != 200:
         return (
@@ -594,8 +502,7 @@ def list_exercises(current_user):
 
 
 @app.route("/exercises/<int:exercise_id>", methods=["GET"])
-@token_required
-def get_exercise_by_id(current_user, exercise_id):
+def get_exercise_by_id(exercise_id):
     access_token, _ = get_wger_access_token()
     if not access_token:
         return jsonify({"message": "Failed to obtain wger access token"}), 500
@@ -613,18 +520,7 @@ def get_exercise_by_id(current_user, exercise_id):
 
 
 @app.route("/exercises", methods=["POST"])
-@token_required
-def create_exercise(current_user):
-    """
-    Note: Typically, only admin/staff can create new exercises in wger.
-    Example JSON:
-    {
-      "name": "My Custom Exercise",
-      "description": "Testing custom exercise creation",
-      "category": 10,
-      "language": 2
-    }
-    """
+def create_exercise():
     exercise_data = request.json
     access_token, _ = get_wger_access_token()
     if not access_token:
@@ -651,8 +547,7 @@ def create_exercise(current_user):
 
 
 @app.route("/exercises/<int:exercise_id>", methods=["PUT"])
-@token_required
-def update_exercise(current_user, exercise_id):
+def update_exercise(exercise_id):
     exercise_data = request.json
     access_token, _ = get_wger_access_token()
     if not access_token:
@@ -679,8 +574,7 @@ def update_exercise(current_user, exercise_id):
 
 
 @app.route("/exercises/<int:exercise_id>", methods=["DELETE"])
-@token_required
-def delete_exercise(current_user, exercise_id):
+def delete_exercise(exercise_id):
     access_token, _ = get_wger_access_token()
     if not access_token:
         return jsonify({"message": "Failed to obtain wger access token"}), 500
@@ -700,73 +594,3 @@ def delete_exercise(current_user, exercise_id):
         )
 
     return jsonify({"message": "Exercise deleted successfully"}), 200
-
-
-# -------------------------------------------------------------------
-# Nutritionix API Routes
-# -------------------------------------------------------------------
-NUTRITIONIX_APP_ID = "a33aca0b"
-NUTRITIONIX_APP_KEY = "2bbff0272ab257619aa30f67705b055e"
-NUTRITIONIX_BASE_URL = "https://trackapi.nutritionix.com/v2"
-
-
-@app.route("/nutrition/search", methods=["GET"])
-@token_required
-def search_food(current_user):
-    """
-    Searches for foods using Nutritionix's Instant Search endpoint.
-    Usage:
-      GET /nutrition/search?query=milk
-    """
-    query = request.args.get("query")
-    if not query:
-        return jsonify({"message": "Query parameter is required"}), 400
-
-    url = f"{NUTRITIONIX_BASE_URL}/search/instant"
-    headers = {
-        "x-app-id": NUTRITIONIX_APP_ID,
-        "x-app-key": NUTRITIONIX_APP_KEY,
-    }
-    params = {"query": query}
-
-    response = requests.get(url, headers=headers, params=params)
-    if response.status_code != 200:
-        return (
-            jsonify({"message": "Failed to search foods", "error": response.json()}),
-            response.status_code,
-        )
-
-    return jsonify(response.json()), 200
-
-
-@app.route("/nutrition/nutrients", methods=["POST"])
-@token_required
-def get_nutrients_info(current_user):
-    """
-    Analyzes a food query using Nutritionix's Natural Language endpoint.
-    Example JSON body:
-    {
-      "query": "2 eggs and a slice of bacon"
-    }
-    """
-    data = request.json
-    if not data or not data.get("query"):
-        return jsonify({"message": "A 'query' field is required in the JSON body"}), 400
-
-    url = f"{NUTRITIONIX_BASE_URL}/natural/nutrients"
-    headers = {
-        "x-app-id": NUTRITIONIX_APP_ID,
-        "x-app-key": NUTRITIONIX_APP_KEY,
-        "Content-Type": "application/json",
-    }
-
-    response = requests.post(url, headers=headers, json=data)
-    if response.status_code != 200:
-        return (
-            jsonify(
-                {"message": "Failed to analyze food query", "error": response.json()}
-            ),
-            response.status_code,
-        )
-
-    return jsonify(response.json()), 200
