@@ -3,90 +3,121 @@ import appleIcon from "../assets/apple.png";
 import burgerIcon from "../assets/burger.png";
 import saladIcon from "../assets/salad.png";
 
-// Dummy data for nutritional values
-const FOOD_DATA = {
-    Almonds: { calories: 164, fat: "14g", carbs: "6g" },
-    Apples: { calories: 95, fat: "0.3g", carbs: "25g" },
-    Avocados: { calories: 234, fat: "21g", carbs: "12g" },
-    Bananas: { calories: 105, fat: "0.4g", carbs: "27g" },
-    "Brewed Tea": { calories: 2, fat: "0g", carbs: "0.4g" },
-    Broccoli: { calories: 55, fat: "0.6g", carbs: "11g" },
-    "Brown Rice": { calories: 216, fat: "1.8g", carbs: "45g" },
-    Carrots: { calories: 25, fat: "0.1g", carbs: "6g" },
-    Celery: { calories: 16, fat: "0.2g", carbs: "3g" },
-    Cucumber: { calories: 16, fat: "0.1g", carbs: "3.8g" },
-    Eggs: { calories: 72, fat: "4.8g", carbs: "0.4g" },
-};
-
 function Calories() {
     const [searchTerm, setSearchTerm] = useState("");
-    const [selectedFood, setSelectedFood] = useState("");
+    const [foodData, setFoodData] = useState(null);  // Stores { name, calories, fat, carbs }
     const [amount, setAmount] = useState(1);
+    const [error, setError] = useState("");
 
-    // For popular foods buttons
-    const popularFoods = Object.keys(FOOD_DATA);
+    // Expanded list of popular foods (queries)
+    const popularFoods = [
+        "1 apple",
+        "2 eggs",
+        "1 banana",
+        "100g broccoli",
+        "1 cup rice",
+        "1 slice pizza",
+        "1 cup coffee",
+        "1 burger",
+        "1 cup oatmeal",
+        "1 slice cheese",
+        "1 cup milk",
+        "1 cup pasta",
+        "100g salmon",
+        "1 chocolate bar"
+    ];
 
     // Update the search text as user types
     const handleSearchInput = (e) => {
         setSearchTerm(e.target.value);
     };
 
-    // When user clicks on a popular food
-    const handleSelectFood = (food) => {
-        setSelectedFood(food);
-        setSearchTerm(food);
+    // When user clicks a popular food button
+    const handleSelectFood = (foodQuery) => {
+        setSearchTerm(foodQuery);
+        setFoodData(null);
+        setError("");
     };
 
-    // Search button: try to match user input to a known food
-    const handleSearchFood = () => {
-        const normalizedTerm = searchTerm.trim().toLowerCase();
+    // On "Search", POST to /calories with { query: searchTerm }
+    const handleSearchFood = async () => {
+        setError("");
+        setFoodData(null);
 
-        // Attempt a partial match in FOOD_DATA keys
-        const foundKey = Object.keys(FOOD_DATA).find((food) =>
-            food.toLowerCase().includes(normalizedTerm)
-        );
+        if (!searchTerm.trim()) {
+            setError("Please enter a food description (e.g. '1 apple' or '2 eggs').");
+            return;
+        }
 
-        if (foundKey) {
-            // If found, set that as the selected food
-            setSelectedFood(foundKey);
-            setSearchTerm(foundKey); // show the matched name in the input
-        } else {
-            // If not found, clear the selectedFood (use placeholder data)
-            setSelectedFood("");
+        try {
+            const response = await fetch("http://localhost:5000/calories", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ query: searchTerm }),
+            });
+
+            if (!response.ok) {
+                // e.g. 404, 400, etc.
+                const errData = await response.json();
+                throw new Error(errData.error || errData.message || `Error: ${response.status}`);
+            }
+
+            const data = await response.json();
+            // data should look like: { "foods": [ { "food_name": ..., "nf_calories": ..., etc. } ] }
+
+            if (!data.foods || data.foods.length === 0) {
+                throw new Error("No foods found in the response.");
+            }
+
+            // We'll just use the first item from the array
+            const item = data.foods[0];
+            // Convert it to our own structure
+            const parsed = {
+                name: item.food_name,
+                calories: item.nf_calories,               // e.g. 143.04
+                fat: item.nf_total_fat,                   // e.g. 9.53
+                carbs: item.nf_total_carbohydrate,        // e.g. 1.12
+            };
+
+            setFoodData(parsed);
+            setError("");
+        } catch (err) {
+            setError(err.message);
         }
     };
 
-    // Calculate: show an alert with the data * amount
+    // "Calculate" button: multiply the macros by 'amount'
     const handleCalculate = () => {
-        const data = FOOD_DATA[selectedFood] || { calories: 100, fat: "10g", carbs: "10g" };
-        const totalCalories = data.calories * amount;
-        const totalFat = multiplyMacros(data.fat, amount);
-        const totalCarbs = multiplyMacros(data.carbs, amount);
+        if (!foodData) return;
+
+        const totalCalories = (foodData.calories * amount).toFixed(2);
+        const totalFat = (parseFloat(foodData.fat) * amount || 0).toFixed(2);
+        const totalCarbs = (parseFloat(foodData.carbs) * amount || 0).toFixed(2);
 
         alert(
-            `For ${amount} serving(s) of ${selectedFood || "Unknown Food"}:
-       ${totalCalories} Calories, ${totalFat} Fat, ${totalCarbs} Carbs.`
+            `For ${amount} serving(s) of ${foodData.name}:\n` +
+            `${totalCalories} Calories, ${totalFat}g Fat, ${totalCarbs}g Carbs.`
         );
-    };
-
-    // Helper to multiply numeric portion of a macro by "amount"
-    const multiplyMacros = (macroString, multiplier) => {
-        const parsed = parseFloat(macroString);
-        return !isNaN(parsed) ? parsed * multiplier + "g" : macroString;
     };
 
     // Clear everything
     const handleClear = () => {
         setSearchTerm("");
-        setSelectedFood("");
+        setFoodData(null);
         setAmount(1);
+        setError("");
     };
 
-    // For the "You’ve Consumed" section
-    const currentFoodData = FOOD_DATA[selectedFood] || { calories: 100, fat: "10g", carbs: "10g" };
-    const displayCalories = currentFoodData.calories * amount;
-    const displayFat = multiplyMacros(currentFoodData.fat, amount);
-    const displayCarbs = multiplyMacros(currentFoodData.carbs, amount);
+    // If we have data, compute displayed macros
+    let displayCalories = 0;
+    let displayFat = "0";
+    let displayCarbs = "0";
+
+    if (foodData) {
+        displayCalories = (foodData.calories * amount).toFixed(2);
+        displayFat = (parseFloat(foodData.fat) * amount || 0).toFixed(2);
+        displayCarbs = (parseFloat(foodData.carbs) * amount || 0).toFixed(2);
+    }
 
     return (
         <div className="p-8 max-w-3xl mx-auto">
@@ -106,7 +137,7 @@ function Calories() {
                     type="text"
                     value={searchTerm}
                     onChange={handleSearchInput}
-                    placeholder="e.g., apples or kiwi"
+                    placeholder='e.g., "1 apple" or "2 eggs"'
                     className="w-full md:w-2/3 border border-gray-300 p-2 rounded"
                 />
                 <button
@@ -117,11 +148,11 @@ function Calories() {
                 </button>
             </div>
 
-            {/* 
-        MAIN MENU 1 (Popular Foods) 
-        Only shown if there's no selected food
-      */}
-            {!selectedFood && (
+            {/* Show error if any */}
+            {error && <div className="text-center text-red-500 mb-4">{error}</div>}
+
+            {/* If there's no foodData and no error, show popular foods */}
+            {!foodData && !error && (
                 <div>
                     <p className="text-gray-500 text-center mb-4">Popular Foods</p>
                     <div className="flex flex-wrap gap-2 justify-center mb-8">
@@ -129,8 +160,7 @@ function Calories() {
                             <button
                                 key={index}
                                 onClick={() => handleSelectFood(food)}
-                                className="border border-gray-300 px-3 py-1 rounded 
-                           hover:bg-gray-100 transition-colors"
+                                className="border border-gray-300 px-3 py-1 rounded hover:bg-gray-100 transition-colors"
                             >
                                 {food}
                             </button>
@@ -139,14 +169,11 @@ function Calories() {
                 </div>
             )}
 
-            {/* 
-        MAIN MENU 2 (Selected Food) 
-        Displayed when a food is selected
-      */}
-            {selectedFood && (
+            {/* If we have data, show the macros */}
+            {foodData && (
                 <div className="text-center">
                     <div className="mb-4">
-                        <p className="font-semibold text-gray-700">Your Food: {selectedFood}</p>
+                        <p className="font-semibold text-gray-700">Your Food: {foodData.name}</p>
                         <label className="block font-semibold my-2">Amount (servings):</label>
                         <input
                             type="number"
@@ -167,11 +194,11 @@ function Calories() {
                             </div>
                             <div>
                                 <p className="text-gray-700">Fat</p>
-                                <p className="font-bold">{displayFat}</p>
+                                <p className="font-bold">{displayFat}g</p>
                             </div>
                             <div>
                                 <p className="text-gray-700">Carbs</p>
-                                <p className="font-bold">{displayCarbs}</p>
+                                <p className="font-bold">{displayCarbs}g</p>
                             </div>
                         </div>
                     </div>

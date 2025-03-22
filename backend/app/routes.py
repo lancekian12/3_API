@@ -594,3 +594,42 @@ def delete_exercise(exercise_id):
         )
 
     return jsonify({"message": "Exercise deleted successfully"}), 200
+
+
+NUTRITIONIX_APP_ID = "a33aca0b"
+NUTRITIONIX_APP_KEY = "2bbff0272ab257619aa30f67705b055e"
+NUTRITIONIX_BASE_URL = "https://trackapi.nutritionix.com/v2"
+
+
+@app.route("/calories", methods=["POST"])
+def get_nutrition():
+    """
+    POST /calories
+    JSON body: { "query": "2 eggs" }
+
+    Returns the JSON from Nutritionix's /natural/nutrients endpoint.
+    """
+    data = request.json
+    if not data or not data.get("query"):
+        return jsonify({"message": "A 'query' field is required in the JSON body"}), 400
+
+    # Build request to Nutritionix
+    url = f"{NUTRITIONIX_BASE_URL}/natural/nutrients"
+    headers = {
+        "x-app-id": NUTRITIONIX_APP_ID,
+        "x-app-key": NUTRITIONIX_APP_KEY,
+        "Content-Type": "application/json",
+    }
+
+    response = requests.post(url, headers=headers, json={"query": data["query"]})
+
+    if response.status_code != 200:
+        return (
+            jsonify(
+                {"message": "Failed to analyze food query", "error": response.json()}
+            ),
+            response.status_code,
+        )
+
+    # If successful, return the Nutritionix JSON
+    return jsonify(response.json()), 200
