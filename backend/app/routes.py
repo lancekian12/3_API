@@ -483,23 +483,61 @@ def delete_day(day_id):
     return jsonify({"message": "Day deleted successfully"}), 200
 
 
+import requests
+from flask import jsonify
+
 @app.route("/exercises", methods=["GET"])
 def list_exercises():
-    access_token, _ = get_wger_access_token()
-    if not access_token:
-        return jsonify({"message": "Failed to obtain wger access token"}), 500
+    # Fetch exercises from WGER API
+    exercises_url = "https://wger.de/api/v2/exerciseinfo/"
+    exercises_response = requests.get(exercises_url, params={"language": 2, "limit": 100})
+    if exercises_response.status_code != 200:
+        return jsonify({"message": "Failed to fetch exercises from WGER API"}), 500
 
-    headers = {"Authorization": f"Bearer {access_token}"}
-    url = "https://wger.de/api/v2/exercise/"
-    response = requests.get(url, headers=headers, params=request.args)
-    if response.status_code != 200:
-        return (
-            jsonify({"message": "Failed to fetch exercises", "error": response.json()}),
-            response.status_code,
-        )
+    exercises = exercises_response.json().get("results", [])
+    print("Fetched exercises:", exercises)  # Debugging
 
-    return jsonify(response.json()), 200
+    # Create a mapping of exercise IDs to their names
+    exercise_names = {}
+    for exercise in exercises:
+        exercise_id = exercise["id"]
+        for translation in exercise.get("translations", []):
+            if translation["language"] == 2:  # Filter for English translations
+                exercise_names[exercise_id] = translation["name"]
+                break  # Use the first English translation found
 
+    print("Exercise names mapping:", exercise_names)  # Debugging
+
+    # Fetch categories, muscles, and equipment from WGER API
+    categories_url = "https://wger.de/api/v2/exercisecategory/"
+    muscles_url = "https://wger.de/api/v2/muscle/"
+    equipment_url = "https://wger.de/api/v2/equipment/"
+
+    categories_response = requests.get(categories_url)
+    muscles_response = requests.get(muscles_url)
+    equipment_response = requests.get(equipment_url)
+
+    if (
+        categories_response.status_code != 200
+        or muscles_response.status_code != 200
+        or equipment_response.status_code != 200
+    ):
+        return jsonify({"message": "Failed to fetch additional data from WGER API"}), 500
+
+    # Create mapping dictionaries
+    categories = {cat["id"]: cat["name"] for cat in categories_response.json().get("results", [])}
+    muscles = {muscle["id"]: muscle["name"] for muscle in muscles_response.json().get("results", [])}
+    equipment = {eq["id"]: eq["name"] for eq in equipment_response.json().get("results", [])}
+
+    # Map IDs to names in exercises
+    for exercise in exercises:
+        exercise["name"] = exercise_names.get(exercise["id"], "Unknown Exercise")
+        exercise["category_name"] = categories.get(exercise["category"]["id"])
+        exercise["muscle_names"] = [muscles.get(muscle["id"]) for muscle in exercise["muscles"]]
+        exercise["equipment_names"] = [equipment.get(eq["id"]) for eq in exercise["equipment"]]
+
+    print("Final exercises with names:", exercises)  # Debugging
+    return jsonify(exercises), 200
 
 @app.route("/exercises/<int:exercise_id>", methods=["GET"])
 def get_exercise_by_id(exercise_id):

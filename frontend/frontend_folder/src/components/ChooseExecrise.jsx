@@ -1,24 +1,36 @@
-import React from "react";
-import gymImage from "../assets/gym.png";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-
+import gymImage from "../assets/gym.png";
 
 function ChooseExercise() {
     const navigate = useNavigate();
+    const [exercises, setExercises] = useState([]);
 
-    // Example list of exercises (could be fetched from an API or passed as props)
-    const exercises = [
-        { name: "Machine Bench Press", category: "Legs" },
-        { name: "Machine Seated Calf Raise", category: "Lower Legs" },
-        { name: "PushUp", category: "Chest" },
-        { name: "Dumbbell Shoulder Shrug", category: "Back" },
-        { name: "Machine Hip Abduction", category: "Upper Legs" },
-        { name: "Machine Reverse Fly", category: "Shoulders" },
-        // Add as many exercises as you want here
-    ];
+    useEffect(() => {
+        // Fetch exercises from Flask backend
+        fetch("http://127.0.0.1:5000/exercises")
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error("Failed to fetch exercises");
+                }
+                return response.json();
+            })
+            .then((data) => {
+                // Ensure data is an array before setting it
+                if (Array.isArray(data)) {
+                    setExercises(data);
+                } else {
+                    console.error("Expected an array but got:", data);
+                    setExercises([]); // Fallback to an empty array
+                }
+            })
+            .catch((error) => {
+                console.error("Error fetching exercises:", error);
+                setExercises([]); // Fallback to an empty array
+            });
+    }, []);
 
     const handleNext = () => {
-        // Navigate to the Routine page (or wherever your next step is)
         navigate("/routine");
     };
 
@@ -38,8 +50,13 @@ function ChooseExercise() {
                          px-4 py-2 border border-gray-300 rounded-md 
                          bg-white hover:bg-gray-100 transition-colors"
                         >
-                            <span className="font-semibold">{exercise.name}</span>
-                            <span className="text-gray-500">{exercise.category}</span>
+                            <div>
+                                <span className="font-semibold">{exercise.name}</span>
+                                <div className="text-gray-500">
+                                    <span>{exercise.category_name}</span>
+                                    
+                                </div>
+                            </div>
                         </button>
                     ))}
                 </div>
