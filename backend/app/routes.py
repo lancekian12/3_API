@@ -495,7 +495,7 @@ def list_exercises():
         return jsonify({"message": "Failed to fetch exercises from WGER API"}), 500
 
     exercises = exercises_response.json().get("results", [])
-    print("Fetched exercises:", exercises)  # Debugging
+    
 
     # Create a mapping of exercise IDs to their names
     exercise_names = {}
@@ -506,7 +506,7 @@ def list_exercises():
                 exercise_names[exercise_id] = translation["name"]
                 break  # Use the first English translation found
 
-    print("Exercise names mapping:", exercise_names)  # Debugging
+    
 
     # Fetch categories, muscles, and equipment from WGER API
     categories_url = "https://wger.de/api/v2/exercisecategory/"
@@ -536,7 +536,7 @@ def list_exercises():
         exercise["muscle_names"] = [muscles.get(muscle["id"]) for muscle in exercise["muscles"]]
         exercise["equipment_names"] = [equipment.get(eq["id"]) for eq in exercise["equipment"]]
 
-    print("Final exercises with names:", exercises)  # Debugging
+    
     return jsonify(exercises), 200
 
 @app.route("/exercises/<int:exercise_id>", methods=["GET"])

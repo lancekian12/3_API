@@ -1,37 +1,46 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import gymImage from "../assets/gym.png";
 
 function ChooseExercise() {
     const navigate = useNavigate();
+    const location = useLocation();
     const [exercises, setExercises] = useState([]);
+    const [selectedExercises, setSelectedExercises] = useState([]);
+
+    // Get routine details from the Home screen
+    const { routineName, focus, level, dayTag } = location.state || {};
 
     useEffect(() => {
         // Fetch exercises from Flask backend
         fetch("http://127.0.0.1:5000/exercises")
-            .then((response) => {
-                if (!response.ok) {
-                    throw new Error("Failed to fetch exercises");
-                }
-                return response.json();
-            })
-            .then((data) => {
-                // Ensure data is an array before setting it
-                if (Array.isArray(data)) {
-                    setExercises(data);
-                } else {
-                    console.error("Expected an array but got:", data);
-                    setExercises([]); // Fallback to an empty array
-                }
-            })
-            .catch((error) => {
-                console.error("Error fetching exercises:", error);
-                setExercises([]); // Fallback to an empty array
-            });
+            .then((response) => response.json())
+            .then((data) => setExercises(data))
+            .catch((error) => console.error("Error fetching exercises:", error));
     }, []);
 
+    const handleExerciseClick = (exercise) => {
+        // Toggle exercise selection
+        if (selectedExercises.some((e) => e.id === exercise.id)) {
+            // If already selected, remove it
+            setSelectedExercises(selectedExercises.filter((e) => e.id !== exercise.id));
+        } else {
+            // If not selected, add it
+            setSelectedExercises([...selectedExercises, exercise]);
+        }
+    };
+
     const handleNext = () => {
-        navigate("/routine");
+        // Pass selected exercises and routine details to the Routine screen
+        navigate("/routine", {
+            state: {
+                routineName,
+                focus,
+                level,
+                dayTag,
+                selectedExercises,
+            },
+        });
     };
 
     return (
@@ -46,19 +55,41 @@ function ChooseExercise() {
                     {exercises.map((exercise, index) => (
                         <button
                             key={index}
-                            className="w-full flex items-center justify-between 
+                            className={`w-full flex items-center justify-between 
                          px-4 py-2 border border-gray-300 rounded-md 
-                         bg-white hover:bg-gray-100 transition-colors"
+                         ${
+                             selectedExercises.some((e) => e.id === exercise.id)
+                                 ? "bg-black text-white" // Selected style
+                                 : "bg-white text-black" // Default style
+                         } hover:bg-gray-100 transition-colors`}
+                            onClick={() => handleExerciseClick(exercise)}
                         >
                             <div>
                                 <span className="font-semibold">{exercise.name}</span>
                                 <div className="text-gray-500">
                                     <span>{exercise.category_name}</span>
-                                    
                                 </div>
                             </div>
                         </button>
                     ))}
+                </div>
+
+                {/* Selected Exercises Preview */}
+                <div className="w-full max-w-sm mt-4">
+                    <h3 className="text-lg font-semibold mb-2">Selected Exercises</h3>
+                    <div className="space-y-2">
+                        {selectedExercises.map((exercise, index) => (
+                            <div
+                                key={index}
+                                className="bg-black text-white px-4 py-2 rounded-md"
+                            >
+                                <span className="font-semibold">{exercise.name}</span>
+                                <span className="ml-2 text-gray-300">
+                                    {exercise.category_name}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
                 </div>
 
                 {/* Next Button */}
